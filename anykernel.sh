@@ -65,8 +65,8 @@ chooseport() {
 
 chooseportold() {
   # Calling it first time detects previous input. Calling it second time will do what we want
-  $bin/keycheck
-  $bin/keycheck
+  $bin/$arch32/keycheck
+  $bin/$arch32/keycheck
   SEL=$?
   if [ "$1" == "UP" ]; then
     UP=$SEL
@@ -80,6 +80,10 @@ chooseportold() {
     abort "   Vol key not detected!"
   fi
 }
+
+arch32=`getprop ro.product.cpu.abi | cut -c-3`
+[ -z $arch32 ] && arch32=`getprop ro.product.cpu.abi2 | cut -c-3`
+[ -z $arch32 ] && arch32=arm
 
 # begin ramdisk changes
 if keytest; then

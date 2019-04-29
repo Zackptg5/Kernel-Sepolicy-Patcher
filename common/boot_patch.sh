@@ -157,6 +157,7 @@ if $FUNCTION; then
 else
   ui_print "   Setting kernel to permissive..."
   patch_cmdline "androidboot.selinux=permissive" "androidboot.selinux=permissive"
+  patch_cmdline "androidboot.selinux=enforcing" ""
 fi
 
 ##########################################################################################

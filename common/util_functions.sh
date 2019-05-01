@@ -1,18 +1,16 @@
-##########################################################################################
+#########################################
 #
 # Magisk General Utility Functions
 # by topjohnwu
 #
-# Used everywhere in Magisk
-#
-##########################################################################################
+#########################################
 
 ##########
 # Presets
 ##########
 
-MAGISK_VER="19.0"
-MAGISK_VER_CODE=19000
+MAGISK_VER="19.1"
+MAGISK_VER_CODE=19100
 
 # Detect whether in boot mode
 [ -z $BOOTMODE ] && BOOTMODE=false
@@ -168,40 +166,42 @@ find_block() {
   return 1
 }
 
+mount_part() {
+  local PART=$1
+  local POINT=/${PART}
+  [ -L $POINT ] && rm -f $POINT
+  mkdir $POINT 2>/dev/null
+  is_mounted $POINT && return
+  ui_print "- Mounting $PART"
+  mount -o ro $POINT 2>/dev/null
+  if ! is_mounted $POINT; then
+    local BLOCK=`find_block $PART$SLOT`
+    mount -o ro $BLOCK $POINT
+  fi
+  is_mounted $POINT || abort "! Cannot mount $POINT"
+}
+
 mount_partitions() {
   # Check A/B slot
   SLOT=`grep_cmdline androidboot.slot_suffix`
   if [ -z $SLOT ]; then
-    SLOT=_`grep_cmdline androidboot.slot`
-    [ $SLOT = "_" ] && SLOT=
+    SLOT=`grep_cmdline androidboot.slot`
+    [ -z $SLOT ] || SLOT=_${SLOT}
   fi
   [ -z $SLOT ] || ui_print "- Current boot slot: $SLOT"
 
-  ui_print "- Mounting /system, /vendor"
-  mkdir /system 2>/dev/null
-  [ -f /system/build.prop ] || is_mounted /system || mount -o ro /system 2>/dev/null
-  if ! is_mounted /system && ! [ -f /system/build.prop ]; then
-    SYSTEMBLOCK=`find_block system$SLOT`
-    mount -o ro $SYSTEMBLOCK /system
-  fi
-  [ -f /system/build.prop ] || is_mounted /system || abort "! Cannot mount /system"
-  grep -qE '/dev/root|/system_root' /proc/mounts && SYSTEM_ROOT=true || SYSTEM_ROOT=false
+  mount_part system
   if [ -f /system/init.rc ]; then
     SYSTEM_ROOT=true
+    [ -L /system_root ] && rm -f /system_root
     mkdir /system_root 2>/dev/null
     mount --move /system /system_root
     mount -o bind /system_root/system /system
+  else
+    grep -qE '/dev/root|/system_root' /proc/mounts && SYSTEM_ROOT=true || SYSTEM_ROOT=false
   fi
+  [ -L /system/vendor ] && mount_part vendor
   $SYSTEM_ROOT && ui_print "- Device is system-as-root"
-  if [ -L /system/vendor ]; then
-    mkdir /vendor 2>/dev/null
-    is_mounted /vendor || mount -o ro /vendor 2>/dev/null
-    if ! is_mounted /vendor; then
-      VENDORBLOCK=`find_block vendor$SLOT`
-      mount -o ro $VENDORBLOCK /vendor
-    fi
-    is_mounted /vendor || abort "! Cannot mount /vendor"
-  fi
 }
 
 get_flags() {
@@ -233,10 +233,12 @@ get_flags() {
 
 find_boot_image() {
   BOOTIMAGE=
-  if [ ! -z $SLOT ]; then
+  if $RECOVERYMODE; then
+    BOOTIMAGE=`find_block recovery_ramdisk$SLOT recovery`
+  elif [ ! -z $SLOT ]; then
     BOOTIMAGE=`find_block ramdisk$SLOT recovery_ramdisk$SLOT boot$SLOT`
   else
-    BOOTIMAGE=`find_block ramdisk recovery_ramdisk boot boot_a kern-a android_boot kernel lnx bootimg`
+    BOOTIMAGE=`find_block ramdisk recovery_ramdisk kern-a android_boot kernel boot lnx bootimg boot_a`
   fi
   if [ -z $BOOTIMAGE ]; then
     # Lets see what fstabs tells me

@@ -33,6 +33,8 @@
 # Functions
 ##########################################################################################
 
+RECOVERYMODE=false
+
 # Pure bash dirname implementation
 getdir() {
   case "$1" in

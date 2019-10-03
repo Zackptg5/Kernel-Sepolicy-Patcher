@@ -46,8 +46,14 @@ getdir() {
 keytest() {
   ui_print "- Vol Key Test"
   ui_print "   Press a Vol Key:"
-  (/system/bin/getevent -lc 1 2>&1 | /system/bin/grep VOLUME | /system/bin/grep " DOWN" > $INSTALLER/events) || return 1
-  return 0
+  if (timeout 3 /system/bin/getevent -lc 1 2>&1 | /system/bin/grep VOLUME | /system/bin/grep " DOWN" > $INSTALLER/events); then
+    return 0
+  else
+    ui_print "   Try again:"
+    timeout 3 $INSTALLER/$ARCH32/keycheck
+    local SEL=$?
+    [ $SEL -eq 143 ] && abort "   Vol key not detected!" || return 1
+  fi
 }
 
 chooseport() {
@@ -67,20 +73,22 @@ chooseport() {
 
 chooseportold() {
   # Calling it first time detects previous input. Calling it second time will do what we want
-  $INSTALLER/$ARCH32/keycheck
-  $INSTALLER/$ARCH32/keycheck
-  SEL=$?
-  if [ "$1" == "UP" ]; then
-    UP=$SEL
-  elif [ "$1" == "DOWN" ]; then
-    DOWN=$SEL
-  elif [ $SEL -eq $UP ]; then
-    return 0
-  elif [ $SEL -eq $DOWN ]; then
-    return 1
-  else
-    abort "   Vol key not detected!"
-  fi
+  while true; do
+    $INSTALLER/$ARCH32/keycheck
+    $INSTALLER/$ARCH32/keycheck
+    local SEL=$?
+    if [ "$1" == "UP" ]; then
+      UP=$SEL
+      break
+    elif [ "$1" == "DOWN" ]; then
+      DOWN=$SEL
+      break
+    elif [ $SEL -eq $UP ]; then
+      return 0
+    elif [ $SEL -eq $DOWN ]; then
+      return 1
+    fi
+  done
 }
 
 # patch_cmdline <cmdline entry name> <replacement string>
